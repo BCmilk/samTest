@@ -1,0 +1,25 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "图像分割测试_01",
+  "name_for_model": "samTest_01",
+  "description_for_human":"支持对用户提供的图片进行图像分割",
+    "description_for_model":"Supports image segmentation of user-provided image",
+    "auth":{
+        "type":"service_http",
+        "authorization_type":"Basic"
+    },
+    "api":{
+        "type":"openapi",
+        "url":"http://127.0.0.1:8022/openapi.yaml"
+    },
+    "logo_url":"https://wordcloud.bj.bcebos.com/logo/wordcloud.png",
+    "contact_email":"390947591@qq.com",
+    "legal_info_url":"https://example.com/legal",
+    "examples": {
+        "url": "http://127.0.0.1:8022/example.yaml"
+    },
+    "msg_content": {
+        "url": "http://127.0.0.1:8022/msg_content.yaml"
+    }
+
+}

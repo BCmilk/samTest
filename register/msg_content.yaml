@@ -1,0 +1,5 @@
+sam:
+    success:
+      -errCode: output
+      actionName: 正在输出结果
+      actionContent: 测试结果输出完成

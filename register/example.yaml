@@ -1,0 +1,38 @@
+version: 0.0.1
+examples:
+  - content:
+    - role: user
+      content: '帮我分割这个图，文件地址是https://dwz.cn/U3MtfDSM'
+    - role: bot
+      plugin:
+        operationId: sam
+        thoughts: 这是一个分割图像的需求，用户指定了文件的地址，只需提取文件地址即可
+        requestArguments:
+          fileUrl: https://dwz.cn/U3MtfDSM
+  - content:
+    - role: user
+      content: '什么是图像分割'
+    - rule: bot
+      plugin:
+        thoughts: 我不需要使用以上工具
+  - content:
+    - role: user
+      content: '如何分割图像'
+    - rule: bot
+      plugin:
+        thoughts: 我不需要使用以上工具
+  - content:
+      - role: user
+        content: '分割这个图'
+      - role: bot
+        plugin:
+          thoughts: 这是一个分割图像的需求，但用户没有提供文件地址，所以无法使用以上工具
+  - content:
+      - role: user
+        content: '分割这个图https://dwz.cn/U3MtfDSM'
+      - role: bot
+        plugin:
+          operationId: sam
+          thoughts: 这是一个分割图像的需求，用户指定了文件的地址，只需提取文件地址即可
+          requestArguments:
+            fileUrl: https://dwz.cn/U3MtfDSM
