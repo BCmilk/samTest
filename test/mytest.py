@@ -10,9 +10,9 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import cv2
-#导入BosClient配置文件
+# 导入BosClient配置文件
 import sts_sample
-#导入BOS相关模块
+# 导入BOS相关模块
 from baidubce import exception
 from baidubce.services import bos
 from baidubce.services.bos import canned_acl
@@ -41,9 +41,6 @@ async def samtest():
     sys.path.append("..")  # 将上一级目录加入sys.path，这样才能执行下面一句
     from segment_anything import sam_model_registry, SamPredictor
 
-    request_data = request.get_json()
-    url = request_data.get('url')
-
     sam_checkpoint = 'checkpoint/sam_vit_b_01ec64.pth'
     model_type = "vit_b"
     device = "cuda"  # "cpu"  cuda
@@ -51,24 +48,41 @@ async def samtest():
     sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
     sam.to(device=device)
 
+    request_data = request.get_json()
+    url = request_data.get('fileUrl')
+
     # 导入待分割图片
     image = None
-    try:
-        with request.get(url) as url_response:
-            s = url_response.read()
-        arr = np.asarray(bytearray(s), dtype=np.uint8)
-        image = cv2.imdecode(arr, -1)  # 'Load it as it is'
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert to RGB
-    except Exception as e:
-        print("获取图片出错")
+    if url:
+        print(f"url获取成功, {url}")
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                s = response.content
+                arr = np.asarray(bytearray(s), dtype=np.uint8)
+                image = cv2.imdecode(arr, -1)  # 'Load it as it is'
+                if image is not None:
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert to RGB
+                    print("图像解码成功")
+                else:
+                    print("图片解码失败")
+            else:
+                print(f"请求失败，状态码：{response.status_code}")
+        except Exception as e:
+            print(f"获取图片出错: {e}")
+    else:
+        print("URL为空")
 
     predictor = SamPredictor(sam)
     # 编码图像
-    predictor.set_image(image)
+    try:
+        predictor.set_image(image)
+    except Exception as e2:
+        print(f"图片编码失败: {e2}")
 
     # 单点 prompt  输入格式为(x, y)和并表示出点所带有的标签1(前景点)或0(背景点)。
     height, width = image.shape[:2]
-    input_point = np.array([[height/2, width/2]])  # 标记点
+    input_point = np.array([[height / 2, width / 2]])  # 标记点
     input_label = np.array([1])  # 点所对应的标签
 
     # SamPredictor.predict进行分割，模型会返回这些分割目标对应的置信度
@@ -78,6 +92,10 @@ async def samtest():
         point_labels=input_label,
         multimask_output=True,  # 生成多个mask
     )
+    if masks:
+        print("蒙版生成成功")
+    else:
+        print("蒙版生成失败")
 
     # 找到置信度最高的mask
     max_score_index = np.argmax(scores)
@@ -106,6 +124,10 @@ async def samtest():
     expiration_in_seconds = -1
 
     url = bos_client.generate_pre_signed_url(bucket_name, object_key, timestamp, expiration_in_seconds)
+    if url:
+        print(f"蒙版图生成完成并上传, {url}")
+    else:
+        print("蒙版图生成或上传失败")
 
     def event_stream():
 
@@ -123,15 +145,16 @@ def show_mask(mask, ax, random_color=False):
     else:
         color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
     h, w = mask.shape[-2:]
-    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)# 在Numpy中，reshape函数的-1参数表示让Numpy自动计算该维度的大小。
-                                                                # color.reshape(1, 1, -1)的意思是将color数组重塑为一个三维数组，其中前两个维度的大小为1，第三个维度的大小由Numpy自动计算，以确保重塑后的数组中的元素总数与原始数组相同。
+    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)  # 在Numpy中，reshape函数的-1参数表示让Numpy自动计算该维度的大小。
+    # color.reshape(1, 1, -1)的意思是将color数组重塑为一个三维数组，其中前两个维度的大小为1，第三个维度的大小由Numpy自动计算，以确保重塑后的数组中的元素总数与原始数组相同。
     ax.imshow(mask_image)
+
 
 def show_points(coords, labels, ax, marker_size=375):
     pos_points = coords[labels == 1]
     neg_points = coords[labels == 0]
     ax.scatter(pos_points[:, 0], pos_points[:, 1], color='green', marker='*', s=marker_size, edgecolor='white',
-               linewidth=1.25)# scatter函数用来显示散点图
+               linewidth=1.25)  # scatter函数用来显示散点图
     ax.scatter(neg_points[:, 0], neg_points[:, 1], color='red', marker='*', s=marker_size, edgecolor='white',
                linewidth=1.25)
 
@@ -140,3 +163,36 @@ def show_box(box, ax):
     x0, y0 = box[0], box[1]
     w, h = box[2] - box[0], box[3] - box[1]
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))
+
+
+@app.route("/.well-known/ai-plugin.json")
+async def pluginManifest():
+    host = request.host_url
+    with open(".well-known/ai-plugin.json", encoding="utf-8") as f:
+        text = f.read().replace("PLUGIN_HOST", host)
+        return text, 200, {"Content-Type": "application/json"}
+
+
+@app.route("/.well-known/openapi.yaml")
+async def openapiSpec():
+    host = request.host_url
+    with open(".well-known/openapi.yaml", encoding="utf-8") as f:
+        text = f.read().replace("PLUGIN_HOST", host)
+        return text, 200, {"Content-Type": "text/yaml"}
+
+
+@app.route("/.well-known/example.yaml")
+async def exampleSpec():
+    host = request.host_url
+    with open(".well-known/example.yaml", encoding="utf-8") as f:
+        text = f.read().replace("PLUGIN_HOST", host)
+        return text, 200, {"Content-Type": "text/yaml"}
+
+
+@app.route('/')
+def index():
+    return 'welcome to my webpage!'
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='127.0.0.1', port=8022)

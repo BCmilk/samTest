@@ -1,3 +1,0 @@
-fastapi
-Flask
-Flask_Cors
