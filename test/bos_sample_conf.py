@@ -10,8 +10,8 @@ from baidubce.auth.bce_credentials import BceCredentials
 
 # 设置BosClient的Host，Access Key ID和Secret Access Key
 bos_host = "https://cd.bcebos.com"
-access_key_id = "ALTAKgbQcLCI4UHNRbUpuYMRfh"
-secret_access_key = "89111f386ede4609b938b8398ddf148d"
+access_key_id = "xxx"
+secret_access_key = "xxx"
 
 # 设置日志文件的句柄和日志级别
 logger = logging.getLogger('baidubce.http.bce_http_client')
