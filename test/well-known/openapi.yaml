@@ -1,0 +1,42 @@
+openapi: 3.0.1
+info:
+  title: 图像切割
+  description: 可以根据点，框，文本，或者掩膜分割图片的插件。
+  version: "v1"
+servers:
+  - url: http://127.0.0.1:8022
+paths:
+  /sam/predict:
+    post:
+      operationId: sam
+      description: 进行sam分割
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SamRequestSchema'
+      responses:
+        '200':
+          description: Successful SSE respponse
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SamResponseSchema'
+components:
+  schemas:
+    SamRequestSchema:
+      type: object
+      properties:
+        fileUrl:
+          type: string
+          description: 文字路径地址。如果请求中有地址，只填写fileUrl参数，切勿填写历史记录中的生成结果
+    SamResponseSchema:
+      type: object
+      properties:
+        result:
+          type: string
+          description: 图片分割结果的地址，须展示给用户
+        errCode:
+          type: integer
+          description: 插件响应的业务错误码
