@@ -117,7 +117,7 @@ def samtest():
     timestamp = str(time.time())
 
     ## bos桶名称，自定义，需要和云上创建的bucket_name一致即可
-    bucket_name = "testyiyan"
+    bucket_name = "xxx"
 
     ## bos中文件路径
     object_key = "imageTemp/" + timestamp + 'result.jpeg'
