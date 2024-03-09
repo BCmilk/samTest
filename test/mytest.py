@@ -11,7 +11,8 @@ import torch
 import matplotlib.pyplot as plt
 import cv2
 # 导入BosClient配置文件
-import sts_sample
+import bos_sample_conf
+
 # 导入BOS相关模块
 from baidubce import exception
 from baidubce.services import bos
@@ -31,11 +32,11 @@ import urllib
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://yiyan.baidu.com"}})
 
-bos_client = BosClient(sts_sample.config)
+bos_client = BosClient(bos_sample_conf.config)
 
 
 @app.route('/sam/predict', methods=['POST'])
-async def samtest():
+def samtest():
     # 加载SAM预训练模型
     import sys
     sys.path.append("..")  # 将上一级目录加入sys.path，这样才能执行下面一句
@@ -73,34 +74,37 @@ async def samtest():
     else:
         print("URL为空")
 
+    print("开始sam过程")
     predictor = SamPredictor(sam)
     # 编码图像
     try:
+        print("编码图像...")
         predictor.set_image(image)
     except Exception as e2:
         print(f"图片编码失败: {e2}")
 
     # 单点 prompt  输入格式为(x, y)和并表示出点所带有的标签1(前景点)或0(背景点)。
+    print("生成prompt")
     height, width = image.shape[:2]
-    input_point = np.array([[height / 2, width / 2]])  # 标记点
+    input_point = np.array([[2 * width / 3, height / 2]])  # 标记点
     input_label = np.array([1])  # 点所对应的标签
-
+    print("开始生成蒙版")
     # SamPredictor.predict进行分割，模型会返回这些分割目标对应的置信度
     # predictor已经set好图像了
-    masks, scores, logits = predictor.predict(
-        point_coords=input_point,
-        point_labels=input_label,
-        multimask_output=True,  # 生成多个mask
-    )
-    if masks:
-        print("蒙版生成成功")
-    else:
+    try:
+        masks, scores, logits = predictor.predict(
+            point_coords=input_point,
+            point_labels=input_label,
+            multimask_output=True,  # 生成多个mask
+        )
+    except Exception:
         print("蒙版生成失败")
 
     # 找到置信度最高的mask
     max_score_index = np.argmax(scores)
     max_score_mask = masks[max_score_index]
 
+    print("开始出图")
     plt.figure(figsize=(10, 10))
     plt.imshow(image)
     show_mask(max_score_mask, plt.gca())
@@ -109,6 +113,7 @@ async def samtest():
     plt.axis('off')
     plt.savefig('result.jpeg')
 
+    print("出图完成，上传结果...")
     timestamp = str(time.time())
 
     ## bos桶名称，自定义，需要和云上创建的bucket_name一致即可
@@ -122,16 +127,12 @@ async def samtest():
     timestamp = int(time.time())
 
     expiration_in_seconds = -1
-
+    print("上传成功，url如下: ")
     url = bos_client.generate_pre_signed_url(bucket_name, object_key, timestamp, expiration_in_seconds)
-    if url:
-        print(f"蒙版图生成完成并上传, {url}")
-    else:
-        print("蒙版图生成或上传失败")
-
+    print(url.decode("utf-8"))
     def event_stream():
 
-        json_data_result = {"errCode": "output", "actionName": "正在输出结果", "actionContent": "测试结果输出完成",
+        json_data_result = {"errCode": "output",
                             "result": url.decode("utf-8"),
                             "prompt": "result是图片链接,请用mark语法将这个链接展示给用户, 以下是一个例子: 比如result是 http://www.baidu.com, 你应该返回![测试结果](http://www.baidu.com)"}
         yield f"data:{json.dumps(json_data_result, ensure_ascii=False)}\n\n"
